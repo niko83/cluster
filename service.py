@@ -27,11 +27,11 @@ def application(environ, start_response):
                 raise
             request_data = json.loads(data)
 
-        print 'Start %s' % request_data['title']
+        print 'Start "%s"' % request_data['title']
         output = make_cluster(
             request_data['data'],
-            save_img=True,
-            make_hist=True,
+            save_img=False,
+            make_hist=False,
             title=request_data['title'],
         )
     except Exception as e:

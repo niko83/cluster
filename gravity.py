@@ -6,13 +6,25 @@ import constants
 
 
 def make_cluster(data, meta=None, save_img=True, make_hist=True, title=None):
+    data.pop()
+    data.pop(0)
 
     if make_hist:
         _make_hist(data, title)
 
+    cluster_start = group_to_cluster(data)
+
     min_point, max_point = _normalize_values(data)
     cluster = group_to_cluster(data)
+
     cluster = _calculate_cluster(cluster, save_img, title)
+
+# iteration = 1
+# while len(cluster) > 7:
+    # moving = calculate_moving(cluster)
+    # cluster = regroup_cluster(cluster, moving)
+    # print_cluster(cluster, iteration)
+    # iteration += 1
 
     rebuild_cluster = {}
     for point, count in cluster.iteritems():
@@ -21,8 +33,14 @@ def make_cluster(data, meta=None, save_img=True, make_hist=True, title=None):
                 min_point + (point / 1000) * (max_point - min_point)
         ] = count
 
-    if save_img:
-        print_cluster(rebuild_cluster, 'final', title)
+    axis = [
+        min(cluster_start.keys() + rebuild_cluster.keys()),
+        max(cluster_start.keys() + rebuild_cluster.keys()),
+        min(cluster_start.values() + rebuild_cluster.values()),
+        max(cluster_start.values() + rebuild_cluster.values()),
+    ]
+    print_cluster(cluster_start, iteration=0, axis=axis, title=title)
+    print_cluster(rebuild_cluster, iteration='final', axis=axis, title=title)
 
     return rebuild_cluster
 
@@ -44,7 +62,10 @@ def _calculate_cluster(cluster, save_img, title):
     latest_correct_cluster = cluster
     iteration = 1
     files_to_del = []
-    while count_without_results < constants.COUNT_WITHOUT_RESULTS:
+    while (
+        count_without_results < constants.COUNT_WITHOUT_RESULTS
+        or len(cluster) >= constants.MAX_CLUSTER_LEN
+    ):
         moving = calculate_moving(cluster)
         cluster = regroup_cluster(cluster, moving)
         if save_img:
@@ -52,22 +73,18 @@ def _calculate_cluster(cluster, save_img, title):
         iteration += 1
         if previous_result == len(cluster):
             count_without_results += 1
-            files_to_del.append(file_path)
+            if save_img:
+                files_to_del.append(file_path)
         else:
             count_without_results += 0
             files_to_del = []
             previous_result = len(cluster)
             latest_correct_cluster = cluster
-    [os.remove(f) for f in files_to_del]
+    if save_img:
+        [os.remove(f) for f in files_to_del]
     return latest_correct_cluster
 
 
-# iteration = 1
-# while len(cluster) > 7:
-    # moving = calculate_moving(cluster)
-    # cluster = regroup_cluster(cluster, moving)
-    # print_cluster(cluster, iteration)
-    # iteration += 1
 
 
 def get_gravity(point1, point2):
@@ -148,15 +165,24 @@ def _make_hist(data, title=None):
     pl.close()
 
 
-def print_cluster(cluster, iteration=None, title=None):
+def print_cluster(cluster, iteration=None, title=None, axis=None):
     file_path = os.path.join(constants.IMG_DIR, '%s_%s.svg' % (title, iteration))
     #  print '======='
     #  print file_path, 'Nodes: %s' % len(cluster), 'Points: %s' % cluster
 
     import pylab as pl
     pl.figure(iteration)
+    pl.title(title)
+    pl.xlabel('value')
+    pl.ylabel('Count')
+
+    if axis:
+        pl.axis(axis)
+    else:
+        pl.axis([0, 1000, 0, max(cluster.values())])
+
     for key in sorted(cluster.keys()):
-        pl.plot([key, key], [0, cluster[key]], '#ff00aa', label='%sddd', linewidth=6)
+        pl.plot([key, key], [0, cluster[key]], '#ff0000', linewidth=5)
 
     pl.savefig(file_path)
     pl.close()
