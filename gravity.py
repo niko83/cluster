@@ -150,8 +150,8 @@ def _make_hist(data, title=None):
 
 def print_cluster(cluster, iteration=None, title=None):
     file_path = os.path.join(constants.IMG_DIR, '%s_%s.svg' % (title, iteration))
-    print '======='
-    print file_path, 'Nodes: %s' % len(cluster), 'Points: %s' % cluster
+    #  print '======='
+    #  print file_path, 'Nodes: %s' % len(cluster), 'Points: %s' % cluster
 
     import pylab as pl
     pl.figure(iteration)

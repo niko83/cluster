@@ -27,6 +27,7 @@ def application(environ, start_response):
                 raise
             request_data = json.loads(data)
 
+        print 'Start %s' % request_data['title']
         output = make_cluster(
             request_data['data'],
             save_img=True,
