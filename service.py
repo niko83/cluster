@@ -30,6 +30,7 @@ def application(environ, start_response):
         print 'Start "%s"' % request_data['title']
         output = make_cluster(
             request_data['data'],
+            save_first_and_last=False,
             save_img=False,
             make_hist=False,
             title=request_data['title'],

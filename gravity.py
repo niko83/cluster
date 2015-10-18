@@ -5,7 +5,7 @@ import os
 import constants
 
 
-def make_cluster(data, meta=None, save_img=True, make_hist=True, title=None):
+def make_cluster(data, meta=None, save_first_and_last=True, save_img=True, make_hist=True, title=None):
     data.pop()
     data.pop(0)
 
@@ -19,13 +19,6 @@ def make_cluster(data, meta=None, save_img=True, make_hist=True, title=None):
 
     cluster = _calculate_cluster(cluster, save_img, title)
 
-# iteration = 1
-# while len(cluster) > 7:
-    # moving = calculate_moving(cluster)
-    # cluster = regroup_cluster(cluster, moving)
-    # print_cluster(cluster, iteration)
-    # iteration += 1
-
     rebuild_cluster = {}
     for point, count in cluster.iteritems():
         point = float(point)
@@ -33,14 +26,15 @@ def make_cluster(data, meta=None, save_img=True, make_hist=True, title=None):
                 min_point + (point / 1000) * (max_point - min_point)
         ] = count
 
-    axis = [
-        min(cluster_start.keys() + rebuild_cluster.keys()),
-        max(cluster_start.keys() + rebuild_cluster.keys()),
-        min(cluster_start.values() + rebuild_cluster.values()),
-        max(cluster_start.values() + rebuild_cluster.values()),
-    ]
-    print_cluster(cluster_start, iteration=0, axis=axis, title=title)
-    print_cluster(rebuild_cluster, iteration='final', axis=axis, title=title)
+    if save_first_and_last:
+        axis = [
+            min(cluster_start.keys() + rebuild_cluster.keys()),
+            max(cluster_start.keys() + rebuild_cluster.keys()),
+            min(cluster_start.values() + rebuild_cluster.values()),
+            max(cluster_start.values() + rebuild_cluster.values()),
+        ]
+        print_cluster(cluster_start, iteration=0, axis=axis, title=title)
+        print_cluster(rebuild_cluster, iteration='final', axis=axis, title=title)
 
     return rebuild_cluster
 
