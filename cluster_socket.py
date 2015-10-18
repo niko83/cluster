@@ -4,6 +4,41 @@ import multiprocessing.pool
 import json
 from gravity import make_cluster
 import traceback
+from constants import IMG_DIR
+import shutil
+import os
+
+if os.path.exists(IMG_DIR):
+    shutil.rmtree(IMG_DIR)
+os.makedirs(IMG_DIR)
+
+
+def application(environ, start_response):
+    try:
+        if environ['QUERY_STRING']:
+            request_data = {
+                'data': [float(i.strip()) for i in environ['QUERY_STRING'].split(',') if i.strip()],
+                'title': 'GET',
+            }
+        else:
+            try:
+                data = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
+            except (TypeError, ValueError):
+                raise
+            request_data = json.loads(data)
+
+        output = make_cluster(
+            request_data['data'],
+            save_img=True,
+            make_hist=True,
+            title=request_data['title'],
+        )
+    except Exception as e:
+        traceback.print_exc()
+        output = data
+
+    start_response("200 OK", [('Content-Type', 'application/json')])
+    return [json.dumps(output)]
 
 
 class ThreadPoolWSGIServer(WSGIServer):
@@ -33,24 +68,8 @@ def make_server(host, port, app, thread_count=None, handler_class=WSGIRequestHan
     return httpd
 
 
-def application(environ, start_response):
-    try:
-        if environ['QUERY_STRING']:
-            data = [float(i.strip()) for i in environ['QUERY_STRING'].split(',') if i.strip()]
-        else:
-            try:
-                data = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
-            except (TypeError, ValueError):
-                raise
-            data = json.loads(data)
-        output = make_cluster(data, save_img=True, make_hist=False)
-    except Exception as e:
-        traceback.print_exc()
-        output = data
-
-    start_response("200 OK", [('Content-Type', 'application/json')])
-    return [json.dumps(output)]
 
 
+print 'Starting...'
 httpd = make_server('', 8004, application)
 httpd.serve_forever()

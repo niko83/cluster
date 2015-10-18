@@ -2,17 +2,13 @@
 #-*- coding: utf-8 -*-
 from pprint import pprint
 import os
-
-
-IMG_DIR = os.path.join(os.path.dirname(__file__), 'img')
-if not os.path.exists(IMG_DIR):
-    os.makedirs(IMG_DIR)
+import constants
 
 
 def make_cluster(data, meta=None, save_img=True, make_hist=True, title=None):
 
     if make_hist:
-        _make_hist(data)
+        _make_hist(data, title)
 
     min_point, max_point = _normalize_values(data)
     cluster = group_to_cluster(data)
@@ -26,7 +22,7 @@ def make_cluster(data, meta=None, save_img=True, make_hist=True, title=None):
         ] = count
 
     if save_img:
-        print_cluster(rebuild_cluster, 0, title)
+        print_cluster(rebuild_cluster, 'final', title)
 
     return rebuild_cluster
 
@@ -47,18 +43,22 @@ def _calculate_cluster(cluster, save_img, title):
     previous_result = len(cluster)
     latest_correct_cluster = cluster
     iteration = 1
-    while count_without_results < 15:
+    files_to_del = []
+    while count_without_results < constants.COUNT_WITHOUT_RESULTS:
         moving = calculate_moving(cluster)
         cluster = regroup_cluster(cluster, moving)
         if save_img:
-            print_cluster(cluster, iteration, title)
+            file_path = print_cluster(cluster, iteration, title)
         iteration += 1
         if previous_result == len(cluster):
             count_without_results += 1
+            files_to_del.append(file_path)
         else:
             count_without_results += 0
+            files_to_del = []
             previous_result = len(cluster)
             latest_correct_cluster = cluster
+    [os.remove(f) for f in files_to_del]
     return latest_correct_cluster
 
 
@@ -73,8 +73,8 @@ def _calculate_cluster(cluster, save_img, title):
 def get_gravity(point1, point2):
     if point1 == point2:
         return 0
-    G = 1000000.0
-    gravity = G / (abs(point1 - point2) ** 3)
+    G = constants.GRAVITY
+    gravity = G / (abs(point1 - point2) ** constants.GRAVITY_POWER)
     return gravity
 
 
@@ -134,28 +134,30 @@ def regroup_cluster(cluster, moving):
             value = sum_weight
         new_cluster[key] = value
 
-    pprint(new_cluster)
+    #  pprint(new_cluster)
 
     return new_cluster
 
 
-def _make_hist(data):
+def _make_hist(data, title=None):
     import pylab as pl
     pl.figure(100)
     pl.hist(data, facecolor='g', alpha=0.75)
     pl.grid(True)
-    pl.savefig(os.path.join(IMG_DIR, 'gist.svg'))
+    pl.savefig(os.path.join(constants.IMG_DIR, '%s.svg' % title))
     pl.close()
 
 
 def print_cluster(cluster, iteration=None, title=None):
+    file_path = os.path.join(constants.IMG_DIR, '%s_%s.svg' % (title, iteration))
     print '======='
-    print 'Nodes: %s' % len(cluster), 'Points: %s' % sum(cluster.values())
+    print file_path, 'Nodes: %s' % len(cluster), 'Points: %s' % cluster
 
     import pylab as pl
     pl.figure(iteration)
     for key in sorted(cluster.keys()):
-        pl.plot([key, key], [0, cluster[key]], '#000000')
+        pl.plot([key, key], [0, cluster[key]], '#ff00aa', label='%sddd', linewidth=6)
 
-    pl.savefig(os.path.join(IMG_DIR, '%s_%s.svg' % (title, iteration)))
+    pl.savefig(file_path)
     pl.close()
+    return file_path
