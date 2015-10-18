@@ -1,37 +1,56 @@
 #!/usr/bin/env python
-
-import socket
-import os
+from wsgiref.simple_server import WSGIServer, WSGIRequestHandler
+import multiprocessing.pool
 import json
+from gravity import make_cluster
+import traceback
 
-server_address = '/tmp/cluster.socket'
 
-try:
-    os.unlink(server_address)
-except OSError:
-    if os.path.exists(server_address):
-        raise
+class ThreadPoolWSGIServer(WSGIServer):
 
-s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-s.bind(server_address)
-s.listen(1)
-while True:
-    conn, addr = s.accept()
-    data = conn.recv(1024 * 1024 * 5)
-    data = json.loads(data)
+    def __init__(self, thread_count=None, *args, **kwargs):
+        '''If 'thread_count' == None, we'll use multiprocessing.cpu_count() threads.'''
+        WSGIServer.__init__(self, *args, **kwargs)
+        self.thread_count = thread_count
+        self.pool = multiprocessing.pool.ThreadPool(self.thread_count)
 
-    data = [
-        5.1, 4.9, 4.7, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9, 5.4, 4.8, 4.8, 4.3, 5.8, 5.7,
-        5.4, 5.1, 5.7, 5.1, 5.4, 5.1, 4.6, 5.1, 4.8, 5.0, 5.0, 5.2, 5.2, 4.7, 4.8,
-        5.4, 5.2, 5.5, 4.9, 5.0, 5.5, 4.9, 4.4, 5.1, 5.0, 4.5, 4.4, 5.0, 5.1, 4.8,
-        5.1, 4.6, 5.3, 5.0, 7.0, 6.4, 6.9, 5.5, 6.5, 5.7, 6.3, 4.9, 6.6, 5.2, 5.0,
-        5.9, 6.0, 6.1, 5.6, 6.7, 5.6, 5.8, 6.2, 5.6, 5.9, 6.1, 6.3, 6.1, 6.4, 6.6,
-        6.8, 6.7, 6.0, 5.7, 5.5, 5.5, 5.8, 6.0, 5.4, 6.0, 6.7, 6.3, 5.6, 5.5, 5.5,
-        6.1, 5.8, 5.0, 5.6, 5.7, 5.7, 6.2, 5.1, 5.7, 6.3, 5.8, 7.1, 6.3, 6.5, 7.6,
-        4.9, 7.3, 6.7, 7.2, 6.5, 6.4, 6.8, 5.7, 5.8, 6.4, 6.5, 7.7, 7.7, 6.0, 6.9,
-        5.6, 7.7, 6.3, 6.7, 7.2, 6.2, 6.1, 6.4, 7.2, 7.4, 7.9, 6.4, 6.3, 6.1, 7.7,
-        6.3, 6.4, 6.0, 6.9, 6.7, 6.9, 5.8, 6.8, 6.7, 6.7, 6.3, 6.5, 6.2, 5.9,
-    ]
+    # Inspired by SocketServer.ThreadingMixIn.
+    def process_request_thread(self, request, client_address):
+        try:
+            self.finish_request(request, client_address)
+            self.shutdown_request(request)
+        except:
+            self.handle_error(request, client_address)
+            self.shutdown_request(request)
 
-    conn.sendall(data)
-    conn.close()
+    def process_request(self, request, client_address):
+        self.pool.apply_async(self.process_request_thread, args=(request, client_address))
+
+
+def make_server(host, port, app, thread_count=None, handler_class=WSGIRequestHandler):
+    httpd = ThreadPoolWSGIServer(thread_count, (host, port), handler_class)
+    httpd.set_app(app)
+    return httpd
+
+
+def application(environ, start_response):
+    try:
+        if environ['QUERY_STRING']:
+            data = [float(i.strip()) for i in environ['QUERY_STRING'].split(',') if i.strip()]
+        else:
+            try:
+                data = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
+            except (TypeError, ValueError):
+                raise
+            data = json.loads(data)
+        output = make_cluster(data, save_img=True, make_hist=False)
+    except Exception as e:
+        traceback.print_exc()
+        output = data
+
+    start_response("200 OK", [('Content-Type', 'application/json')])
+    return [json.dumps(output)]
+
+
+httpd = make_server('', 8004, application)
+httpd.serve_forever()

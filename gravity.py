@@ -3,34 +3,46 @@
 from pprint import pprint
 import os
 
-import pylab as pl
 
-IMG_DIR = os.path.join(os.dirname(__file__), 'img')
+IMG_DIR = os.path.join(os.path.dirname(__file__), 'img')
 if not os.path.exists(IMG_DIR):
     os.makedirs(IMG_DIR)
 
 
-def make_cluster(data, meta=None, save_img=True, make_hist=True):
+def make_cluster(data, meta=None, save_img=True, make_hist=True, title=None):
 
     if make_hist:
         _make_hist(data)
 
-    _normalize_values(data)
+    min_point, max_point = _normalize_values(data)
     cluster = group_to_cluster(data)
-    cluster = _calculate_cluster(cluster, save_img)
+    cluster = _calculate_cluster(cluster, save_img, title)
+
+    rebuild_cluster = {}
+    for point, count in cluster.iteritems():
+        point = float(point)
+        rebuild_cluster[
+                min_point + (point / 1000) * (max_point - min_point)
+        ] = count
 
     if save_img:
-        print_cluster(cluster, 0)
+        print_cluster(rebuild_cluster, 0, title)
+
+    return rebuild_cluster
 
 
 def _normalize_values(data):
     min_point = min(data)
     max_point = max(data)
     for idx, point in enumerate(data):
-        data[idx] = int(1000 * (point - min_point) / (max_point - min_point))
+        if max_point != min_point:
+            data[idx] = int(1000 * (point - min_point) / (max_point - min_point))
+        else:
+            data[idx] = 1
+    return min_point, max_point
 
 
-def _calculate_cluster(cluster, save_img):
+def _calculate_cluster(cluster, save_img, title):
     count_without_results = 0
     previous_result = len(cluster)
     latest_correct_cluster = cluster
@@ -39,7 +51,7 @@ def _calculate_cluster(cluster, save_img):
         moving = calculate_moving(cluster)
         cluster = regroup_cluster(cluster, moving)
         if save_img:
-            print_cluster(cluster, iteration)
+            print_cluster(cluster, iteration, title)
         iteration += 1
         if previous_result == len(cluster):
             count_without_results += 1
@@ -128,6 +140,7 @@ def regroup_cluster(cluster, moving):
 
 
 def _make_hist(data):
+    import pylab as pl
     pl.figure(100)
     pl.hist(data, facecolor='g', alpha=0.75)
     pl.grid(True)
@@ -135,13 +148,14 @@ def _make_hist(data):
     pl.close()
 
 
-def print_cluster(cluster, iteration=None):
+def print_cluster(cluster, iteration=None, title=None):
     print '======='
     print 'Nodes: %s' % len(cluster), 'Points: %s' % sum(cluster.values())
 
+    import pylab as pl
     pl.figure(iteration)
     for key in sorted(cluster.keys()):
         pl.plot([key, key], [0, cluster[key]], '#000000')
-        pl.axis([0, 1000, 0, 100000])
-    pl.savefig(os.path.join(IMG_DIR, 's.svg' % iteration))
+
+    pl.savefig(os.path.join(IMG_DIR, '%s_%s.svg' % (title, iteration)))
     pl.close()
