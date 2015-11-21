@@ -6,8 +6,14 @@ import constants
 
 
 def make_cluster(data, meta=None, save_first_and_last=True, save_img=True, make_hist=True, title=None):
-    data.pop()
-    data.pop(0)
+    data = sorted([d for d in data if d is not None])
+    input_len = len(data)
+    count_extreme_value = int(len(data) * 0.01) or 1
+    data = data[count_extreme_value: -count_extreme_value]
+
+    if not data:
+        print '%s without data. input len %s' % (title, input_len)
+        return data
 
     if make_hist:
         _make_hist(data, title)
