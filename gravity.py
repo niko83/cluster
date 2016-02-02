@@ -1,11 +1,17 @@
 #!/usr/bin/env python
-#-*- coding: utf-8 -*-
-from pprint import pprint
+
 import os
 import constants
 
 
-def make_cluster(data, meta=None, save_first_and_last=True, save_img=True, make_hist=True, title=None):
+def make_cluster(
+        data,
+        meta=None,
+        save_first_and_last=True,
+        save_img=True,
+        make_hist=True,
+        title=None
+):
     data = sorted([d for d in data if d is not None])
     input_len = len(data)
     count_extreme_value = int(len(data) * 0.01) or 1
@@ -29,7 +35,7 @@ def make_cluster(data, meta=None, save_first_and_last=True, save_img=True, make_
     for point, count in cluster.iteritems():
         point = float(point)
         rebuild_cluster[
-                min_point + (point / 1000) * (max_point - min_point)
+            min_point + (point / 1000) * (max_point - min_point)
         ] = count
 
     if save_first_and_last:
@@ -63,8 +69,8 @@ def _calculate_cluster(cluster, save_img, title):
     iteration = 1
     files_to_del = []
     while (
-        count_without_results < constants.COUNT_WITHOUT_RESULTS
-        or len(cluster) >= constants.MAX_CLUSTER_LEN
+            count_without_results < constants.COUNT_WITHOUT_RESULTS or
+            len(cluster) >= constants.MAX_CLUSTER_LEN
     ):
         moving = calculate_moving(cluster)
         cluster = regroup_cluster(cluster, moving)
@@ -81,10 +87,8 @@ def _calculate_cluster(cluster, save_img, title):
             previous_result = len(cluster)
             latest_correct_cluster = cluster
     if save_img:
-        [os.remove(f) for f in files_to_del]
+        map(os.remove, files_to_del)
     return latest_correct_cluster
-
-
 
 
 def get_gravity(point1, point2):
