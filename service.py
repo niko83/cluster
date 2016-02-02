@@ -7,6 +7,7 @@ import traceback
 from constants import IMG_DIR
 import shutil
 import os
+import sys
 
 if os.path.exists(IMG_DIR):
     shutil.rmtree(IMG_DIR)
@@ -22,10 +23,11 @@ def application(environ, start_response):
             }
         else:
             try:
-                data = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
+                data = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH'] or 0))
             except (TypeError, ValueError):
                 raise
-            request_data = json.loads(data)
+
+        request_data = json.loads(data)
 
         output = make_cluster(
             request_data['data'],
@@ -36,7 +38,7 @@ def application(environ, start_response):
         )
     except Exception as e:
         traceback.print_exc()
-        output = data
+        output = {'error': e.message}
 
     start_response("200 OK", [('Content-Type', 'application/json')])
     return [json.dumps(output)]
@@ -45,7 +47,7 @@ def application(environ, start_response):
 class ThreadPoolWSGIServer(WSGIServer):
 
     def __init__(self, thread_count=None, *args, **kwargs):
-        '''If 'thread_count' == None, we'll use multiprocessing.cpu_count() threads.'''
+        """If 'thread_count' == None, we'll use multiprocessing.cpu_count() threads."""
         WSGIServer.__init__(self, *args, **kwargs)
         self.thread_count = thread_count
         self.pool = multiprocessing.pool.ThreadPool(self.thread_count)
@@ -69,8 +71,6 @@ def make_server(host, port, app, thread_count=None, handler_class=WSGIRequestHan
     return httpd
 
 
-
-
-print 'Starting...'
-httpd = make_server('', 8004, application)
-httpd.serve_forever()
+sys.stdout.write('Starting...')
+server = make_server('', 8004, application)
+server.serve_forever()
